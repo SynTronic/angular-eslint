@@ -83,3 +83,31 @@ export function getAriaAttributeForProperty(
 
   return null;
 }
+
+/**
+ * Returns the ARIA attribute targeted by the given attribute name on the given
+ * native element, or `null` when the element is not a known native element or
+ * the name is not a known ARIA attribute. `attributeOnly` is `true` when the
+ * attribute has no ARIA reflection DOM property.
+ */
+export function getAriaAttributeBindingTarget(
+  tagName: string,
+  attributeName: string,
+): AriaAttributeForProperty | null {
+  const normalized = attributeName.toLowerCase();
+  if (!normalized.startsWith('aria-')) return null;
+  if (!getRegistry().hasElement(tagName.toLowerCase(), [])) return null;
+
+  buildMappings();
+
+  if (attributeOnlyKeys?.has(normalized)) {
+    return { attributeName: normalized, attributeOnly: true };
+  }
+  for (const mapped of propertyToAttribute?.values() ?? []) {
+    if (mapped === normalized) {
+      return { attributeName: normalized, attributeOnly: false };
+    }
+  }
+
+  return null;
+}

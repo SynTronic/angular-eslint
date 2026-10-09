@@ -25,13 +25,25 @@ Ensures ARIA bindings on native elements target the ARIA attribute rather than t
 
 ## Rationale
 
-Angular maps hyphenated ARIA bindings such as `[aria-label]` to the attribute, while camelCase bindings such as `[ariaLabel]` set the ARIA reflection DOM property. Attribute bindings are the canonical, documented way to set ARIA in Angular templates, work consistently with server-side rendering and hydration (DOM properties are not serialized to HTML), and support every ARIA attribute, including ones that have no reflection property. This rule reports camelCase ARIA property bindings on native elements and suggests the equivalent attribute binding. Component and custom element inputs are not reported because they may intentionally accept camelCase inputs.
+Angular maps hyphenated ARIA bindings such as `[aria-label]` to the attribute, while camelCase bindings such as `[ariaLabel]` set the ARIA reflection DOM property. Attribute bindings are the canonical, documented way to set ARIA in Angular templates, work consistently with server-side rendering and hydration (DOM properties are not serialized to HTML), and support every ARIA attribute, including ones that have no reflection property. This rule reports camelCase ARIA property bindings on native elements and suggests the equivalent attribute binding. By default it also reports hyphenated `attr.`-prefixed ARIA bindings, such as `[attr.aria-label]`, `bind-attr.aria-label`, and `attr.aria-label="{{ label }}"`, because the `attr.` prefix is redundant for ARIA attributes since Angular v20; set `checkAttrPrefix` to `false` to allow them. ARIA attributes without a reflection DOM property are not reported in their `attr.` form. Component and custom element inputs are not reported because they may intentionally accept camelCase inputs.
 
 <br>
 
 ## Rule Options
 
-The rule does not have any configuration options.
+The rule accepts an options object with the following properties:
+
+```ts
+interface Options {
+  /**
+   * Whether to report hyphenated `attr.`-prefixed ARIA bindings, such as `[attr.aria-label]`, on native elements
+   *
+   * Default: `true`
+   */
+  checkAttrPrefix?: boolean;
+}
+
+```
 
 <br>
 
@@ -43,6 +55,33 @@ The rule does not have any configuration options.
 
 <details>
 <summary>❌ - Toggle examples of <strong>incorrect</strong> code for this rule</summary>
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/template/prefer-aria-attribute-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```html
+<div [attr.aria-label]="label"></div>
+     ~~~~~~~~~~~~~~~~~~~~~~~~~
+```
+
+<br>
+
+---
 
 <br>
 
@@ -364,6 +403,114 @@ The rule does not have any configuration options.
        ~~~~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~
 ```
 
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/template/prefer-aria-attribute-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```html
+<div bind-attr.aria-label="label"></div>
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/template/prefer-aria-attribute-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```html
+<div attr.aria-label="{{ label }}"></div>
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/template/prefer-aria-attribute-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```html
+<div [attr.ARIA-label]="label"></div>
+     ~~~~~~~~~~~~~~~~~~~~~~~~~
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/template/prefer-aria-attribute-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```html
+<span *ngIf="show" [attr.aria-hidden]="hidden"></span>
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
+
 </details>
 
 <br>
@@ -447,32 +594,6 @@ The rule does not have any configuration options.
 
 ```html
 <div aria-label="Static label"></div>
-```
-
-<br>
-
----
-
-<br>
-
-#### Default Config
-
-```json
-{
-  "rules": {
-    "@angular-eslint/template/prefer-aria-attribute-binding": [
-      "error"
-    ]
-  }
-}
-```
-
-<br>
-
-#### ✅ Valid Code
-
-```html
-<div [attr.aria-label]="label"></div>
 ```
 
 <br>
@@ -889,6 +1010,139 @@ The rule does not have any configuration options.
 
 ```html
 <button [ariaActiveDescendant]="id"></button>
+```
+
+<br>
+
+---
+
+<br>
+
+#### Custom Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/template/prefer-aria-attribute-binding": [
+      "error",
+      {
+        "checkAttrPrefix": false
+      }
+    ]
+  }
+}
+```
+
+<br>
+
+#### ✅ Valid Code
+
+```html
+<div [attr.aria-label]="label"></div>
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/template/prefer-aria-attribute-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ✅ Valid Code
+
+```html
+<div [ATTR.aria-label]="label"></div>
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/template/prefer-aria-attribute-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ✅ Valid Code
+
+```html
+<app-widget [attr.aria-label]="label"></app-widget>
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/template/prefer-aria-attribute-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ✅ Valid Code
+
+```html
+<div [attr.aria-relevant]="relevant"></div>
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/template/prefer-aria-attribute-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ✅ Valid Code
+
+```html
+<div [attr.aria-lable]="label"></div>
 ```
 
 </details>

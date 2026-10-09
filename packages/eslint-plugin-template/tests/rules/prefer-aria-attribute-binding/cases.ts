@@ -10,13 +10,14 @@ import type {
 
 const preferAriaAttributeOverProperty: MessageIds =
   'preferAriaAttributeOverProperty';
+const preferAriaAttributeOverAttrPrefix: MessageIds =
+  'preferAriaAttributeOverAttrPrefix';
 const suggestAriaAttribute: MessageIds = 'suggestAriaAttribute';
 
 export const valid: readonly (string | ValidTestCase<Options>)[] = [
   '<div [aria-selected]="selected"></div>',
   '<div aria-label="{{ label }}"></div>',
   '<div aria-label="Static label"></div>',
-  '<div [attr.aria-label]="label"></div>',
   '<div [attr.ariaLabel]="label"></div>',
   '<div [title]="title"></div>',
   '<div [class.ariaLabel]="isActive"></div>',
@@ -34,9 +35,40 @@ export const valid: readonly (string | ValidTestCase<Options>)[] = [
   '<div [arialabel]="lowercase"></div>',
   // IDREF reflection properties map to `*Element(s)` DOM properties, which take elements rather than IDs.
   '<button [ariaActiveDescendant]="id"></button>',
+  {
+    code: '<div [attr.aria-label]="label"></div>',
+    options: [{ checkAttrPrefix: false }],
+  },
+  // The `attr.` prefix is case-sensitive in Angular, so this is a property binding.
+  '<div [ATTR.aria-label]="label"></div>',
+  '<app-widget [attr.aria-label]="label"></app-widget>',
+  // Attribute-only ARIA names have no DOM property, so `attr.` is still allowed.
+  '<div [attr.aria-relevant]="relevant"></div>',
+  // Unknown ARIA names are left to `valid-aria`.
+  '<div [attr.aria-lable]="label"></div>',
 ];
 
 export const invalid: readonly InvalidTestCase<MessageIds, Options>[] = [
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should fail if a hyphenated ARIA attribute is bound with the `attr.` prefix on a native element',
+    annotatedSource: `
+        <div [attr.aria-label]="label"></div>
+             ~~~~~~~~~~~~~~~~~~~~~~~~~
+      `,
+    messageId: preferAriaAttributeOverAttrPrefix,
+    data: { attribute: 'aria-label' },
+    suggestions: [
+      {
+        messageId: suggestAriaAttribute,
+        data: { attribute: 'aria-label' },
+        output: `
+        <div [aria-label]="label"></div>
+             
+      `,
+      },
+    ],
+  }),
   convertAnnotatedSourceToFailureCase({
     description:
       'should fail if an ARIA DOM property is bound on a native element',
@@ -244,6 +276,86 @@ export const invalid: readonly InvalidTestCase<MessageIds, Options>[] = [
       `,
           },
         ],
+      },
+    ],
+  }),
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should fail if a hyphenated ARIA attribute is bound with the `bind-attr.` prefix on a native element',
+    annotatedSource: `
+        <div bind-attr.aria-label="label"></div>
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      `,
+    messageId: preferAriaAttributeOverAttrPrefix,
+    data: { attribute: 'aria-label' },
+    suggestions: [
+      {
+        messageId: suggestAriaAttribute,
+        data: { attribute: 'aria-label' },
+        output: `
+        <div bind-aria-label="label"></div>
+             
+      `,
+      },
+    ],
+  }),
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should fail if a hyphenated ARIA attribute is interpolated with the `attr.` prefix on a native element',
+    annotatedSource: `
+        <div attr.aria-label="{{ label }}"></div>
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      `,
+    messageId: preferAriaAttributeOverAttrPrefix,
+    data: { attribute: 'aria-label' },
+    suggestions: [
+      {
+        messageId: suggestAriaAttribute,
+        data: { attribute: 'aria-label' },
+        output: `
+        <div aria-label="{{ label }}"></div>
+             
+      `,
+      },
+    ],
+  }),
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should fail and lowercase the name if an uppercase ARIA attribute is bound with the `attr.` prefix',
+    annotatedSource: `
+        <div [attr.ARIA-label]="label"></div>
+             ~~~~~~~~~~~~~~~~~~~~~~~~~
+      `,
+    messageId: preferAriaAttributeOverAttrPrefix,
+    data: { attribute: 'aria-label' },
+    suggestions: [
+      {
+        messageId: suggestAriaAttribute,
+        data: { attribute: 'aria-label' },
+        output: `
+        <div [aria-label]="label"></div>
+             
+      `,
+      },
+    ],
+  }),
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should report an `attr.` ARIA binding only once when the element has a structural directive',
+    annotatedSource: `
+        <span *ngIf="show" [attr.aria-hidden]="hidden"></span>
+                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      `,
+    messageId: preferAriaAttributeOverAttrPrefix,
+    data: { attribute: 'aria-hidden' },
+    suggestions: [
+      {
+        messageId: suggestAriaAttribute,
+        data: { attribute: 'aria-hidden' },
+        output: `
+        <span *ngIf="show" [aria-hidden]="hidden"></span>
+                           
+      `,
       },
     ],
   }),
