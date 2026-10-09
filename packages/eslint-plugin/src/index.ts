@@ -73,6 +73,9 @@ import noUncalledSignals, {
 import pipePrefix, {
   RULE_NAME as pipePrefixRuleName,
 } from './rules/pipe-prefix';
+import preferAriaAttributeHostBinding, {
+  RULE_NAME as preferAriaAttributeHostBindingRuleName,
+} from './rules/prefer-aria-attribute-host-binding';
 import preferHostMetadataProperty, {
   RULE_NAME as preferHostMetadataPropertyRuleName,
 } from './rules/prefer-host-metadata-property';
@@ -184,6 +187,7 @@ export = {
     [noQueriesMetadataPropertyRuleName]: noQueriesMetadataProperty,
     [noUncalledSignalsRuleName]: noUncalledSignals,
     [pipePrefixRuleName]: pipePrefix,
+    [preferAriaAttributeHostBindingRuleName]: preferAriaAttributeHostBinding,
     [preferHostMetadataPropertyRuleName]: preferHostMetadataProperty,
     [preferInjectRuleName]: preferInject,
     [preferOnPushComponentChangeDetectionRuleName]:

@@ -75,6 +75,9 @@ import noPositiveTabindex, {
 import preferNgsrc, {
   RULE_NAME as preferNgsrcRuleName,
 } from './rules/prefer-ngsrc';
+import preferAriaAttributeBinding, {
+  RULE_NAME as preferAriaAttributeBindingRuleName,
+} from './rules/prefer-aria-attribute-binding';
 import preferAtElse, {
   RULE_NAME as preferAtElseRuleName,
 } from './rules/prefer-at-else';
@@ -146,6 +149,7 @@ export = {
     [noNonNullAssertionRuleName]: noNonNullAssertion,
     [noOuterHtmlRuleName]: noOuterHtml,
     [noPositiveTabindexRuleName]: noPositiveTabindex,
+    [preferAriaAttributeBindingRuleName]: preferAriaAttributeBinding,
     [preferAtElseRuleName]: preferAtElse,
     [preferAtEmptyRuleName]: preferAtEmpty,
     [preferClassBindingRuleName]: preferClassBinding,

@@ -42,6 +42,7 @@ export default (
       '@angular-eslint/template/no-non-null-assertion': 'error',
       '@angular-eslint/template/no-outerhtml': 'error',
       '@angular-eslint/template/no-positive-tabindex': 'error',
+      '@angular-eslint/template/prefer-aria-attribute-binding': 'error',
       '@angular-eslint/template/prefer-at-else': 'error',
       '@angular-eslint/template/prefer-at-empty': 'error',
       '@angular-eslint/template/prefer-built-in-pipes': 'error',
