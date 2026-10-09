@@ -1,6 +1,7 @@
 import type { AST } from '@angular-eslint/bundled-angular-compiler';
 import {
   ASTWithSource,
+  BindingType,
   LiteralArray,
   LiteralMap,
   LiteralPrimitive,
@@ -14,9 +15,17 @@ import { createESLintRule } from '../utils/create-eslint-rule';
 import { getDomElements } from '../utils/get-dom-elements';
 import { toPattern } from '../utils/to-pattern';
 
+type BoundAttributeWithOriginalType = TmplAstBoundAttribute & {
+  __originalType?: BindingType;
+};
+
 export type Options = [];
 export type MessageIds =
-  'validAria' | 'validAriaValue' | 'suggestRemoveInvalidAria';
+  | 'validAria'
+  | 'validAriaValue'
+  | 'suggestRemoveInvalidAria'
+  | 'invalidAttrBindingName'
+  | 'suggestRenameAria';
 export const RULE_NAME = 'valid-aria';
 
 export default createESLintRule<Options, MessageIds>({
@@ -34,6 +43,9 @@ export default createESLintRule<Options, MessageIds>({
       validAriaValue:
         'The `{{attribute}}` has an invalid value. Check the valid values at https://raw.githack.com/w3c/aria/stable/#roles',
       suggestRemoveInvalidAria: 'Remove attribute `{{attribute}}`',
+      invalidAttrBindingName:
+        '`attr.{{attribute}}` sets a literal attribute named `{{attribute}}`; use the hyphenated `attr.{{suggested}}` instead',
+      suggestRenameAria: 'Rename to `attr.{{suggested}}`',
     },
     defaultOptions: [],
   },
@@ -49,6 +61,43 @@ export default createESLintRule<Options, MessageIds>({
     ]);
 
     return {
+      'Element > BoundAttribute[name=/^aria[A-Z]/]'(
+        node: BoundAttributeWithOriginalType,
+      ) {
+        if ((node.__originalType ?? node.type) !== BindingType.Attribute) {
+          return;
+        }
+
+        const { name: attribute, sourceSpan, keySpan } = node;
+        const suggested = `aria-${attribute.slice('aria'.length).toLowerCase()}`;
+        const loc = parserServices.convertNodeSourceSpanToLoc(sourceSpan);
+
+        if (!aria.get(suggested as ARIAProperty) || !keySpan) {
+          context.report({
+            loc,
+            messageId: 'invalidAttrBindingName',
+            data: { attribute, suggested },
+          });
+          return;
+        }
+
+        context.report({
+          loc,
+          messageId: 'invalidAttrBindingName',
+          data: { attribute, suggested },
+          suggest: [
+            {
+              messageId: 'suggestRenameAria',
+              data: { suggested },
+              fix: (fixer) =>
+                fixer.replaceTextRange(
+                  [keySpan.end.offset - attribute.length, keySpan.end.offset],
+                  suggested,
+                ),
+            },
+          ],
+        });
+      },
       [`Element[name=${elementNamePattern}] > :matches(BoundAttribute, TextAttribute)[name=/^aria-.+/]`](
         node: TmplAstBoundAttribute | TmplAstTextAttribute,
       ) {
