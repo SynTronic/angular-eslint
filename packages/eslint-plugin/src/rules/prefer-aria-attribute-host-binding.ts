@@ -33,6 +33,7 @@ const EXCLUDED_ARIA_ATTRIBUTE_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 const BOUND_KEY_PATTERN = /^\[(attr\.)?(aria[-A-Z].*)\]$/i;
+const HOST_BINDING_NAME_PATTERN = /^(attr\.)?(aria[-A-Z].*)$/i;
 const STATIC_ATTR_KEY_PATTERN = /^attr\.(aria[-A-Z].*)$/i;
 const HYPHENATED_ARIA_PATTERN = /^aria-/i;
 const CAMEL_CASE_ARIA_PATTERN = /^aria[A-Z]/;
@@ -75,7 +76,7 @@ export default createESLintRule<Options, MessageIds>({
     type: 'suggestion',
     docs: {
       description:
-        'Ensures that ARIA host bindings in `host` metadata use hyphenated ARIA attribute names',
+        'Ensures that ARIA host bindings in `host` metadata and `@HostBinding` decorators use hyphenated ARIA attribute names',
     },
     fixable: 'code',
     hasSuggestions: true,
@@ -94,7 +95,81 @@ export default createESLintRule<Options, MessageIds>({
     defaultOptions: [],
   },
   create(context) {
+    function checkBoundAriaName(
+      node: TSESTree.Node,
+      attrPrefix: string | undefined,
+      name: string,
+      formatReplacement: (bindingName: string) => string,
+    ): void {
+      if (HYPHENATED_ARIA_PATTERN.test(name)) {
+        if (!isKnownAriaAttribute(name)) {
+          context.report({
+            node,
+            messageId: 'unknownAriaAttribute',
+            data: { attribute: name },
+          });
+        }
+        return;
+      }
+
+      if (!CAMEL_CASE_ARIA_PATTERN.test(name)) return;
+
+      if (attrPrefix) {
+        const suggested = resolveCamelCaseAriaName(name);
+        context.report({
+          node,
+          messageId: 'invalidAttrBindingName',
+          data: { attribute: name, suggested: suggested ?? 'aria-*' },
+          ...(suggested && {
+            fix: (fixer) =>
+              fixer.replaceText(node, formatReplacement(`attr.${suggested}`)),
+          }),
+        });
+        return;
+      }
+
+      const mapped = getAriaAttributeForProperty('div', name);
+      if (!mapped) return;
+      const attribute = mapped.attributeOnly
+        ? `attr.${mapped.attributeName}`
+        : mapped.attributeName;
+      context.report({
+        node,
+        messageId: 'preferAriaAttributeOverProperty',
+        data: { attribute, property: name },
+        suggest: [
+          {
+            messageId: 'suggestAriaAttribute',
+            data: { attribute },
+            fix: (fixer) =>
+              fixer.replaceText(node, formatReplacement(attribute)),
+          },
+        ],
+      });
+    }
+
     return {
+      [Selectors.HOST_BINDING_DECORATOR]({ expression }: TSESTree.Decorator) {
+        if (expression.type !== 'CallExpression') return;
+        const [argument] = expression.arguments;
+        if (
+          argument?.type !== 'Literal' ||
+          typeof argument.value !== 'string'
+        ) {
+          return;
+        }
+
+        const match = HOST_BINDING_NAME_PATTERN.exec(argument.value);
+        if (!match || (match[1] && match[1] !== 'attr.')) return;
+
+        const quote = context.sourceCode.getText(argument)[0];
+        checkBoundAriaName(
+          argument,
+          match[1],
+          match[2],
+          (n) => `${quote}${n}${quote}`,
+        );
+      },
       [`${Selectors.COMPONENT_OR_DIRECTIVE_CLASS_DECORATOR} ${Selectors.metadataProperty(
         'host',
       )} > ObjectExpression > Property`]({ key }: TSESTree.Property) {
@@ -105,49 +180,7 @@ export default createESLintRule<Options, MessageIds>({
         if (boundMatch && (!boundMatch[1] || boundMatch[1] === 'attr.')) {
           const [, attrPrefix, name] = boundMatch;
 
-          if (HYPHENATED_ARIA_PATTERN.test(name)) {
-            if (!isKnownAriaAttribute(name)) {
-              context.report({
-                node: key,
-                messageId: 'unknownAriaAttribute',
-                data: { attribute: name },
-              });
-            }
-            return;
-          }
-
-          if (!CAMEL_CASE_ARIA_PATTERN.test(name)) return;
-
-          if (attrPrefix) {
-            const suggested = resolveCamelCaseAriaName(name);
-            context.report({
-              node: key,
-              messageId: 'invalidAttrBindingName',
-              data: { attribute: name, suggested: suggested ?? 'aria-*' },
-              ...(suggested && {
-                fix: (fixer) => fixer.replaceText(key, `'[attr.${suggested}]'`),
-              }),
-            });
-            return;
-          }
-
-          const mapped = getAriaAttributeForProperty('div', name);
-          if (!mapped) return;
-          const attribute = mapped.attributeOnly
-            ? `attr.${mapped.attributeName}`
-            : mapped.attributeName;
-          context.report({
-            node: key,
-            messageId: 'preferAriaAttributeOverProperty',
-            data: { attribute, property: name },
-            suggest: [
-              {
-                messageId: 'suggestAriaAttribute',
-                data: { attribute },
-                fix: (fixer) => fixer.replaceText(key, `'[${attribute}]'`),
-              },
-            ],
-          });
+          checkBoundAriaName(key, attrPrefix, name, (n) => `'[${n}]'`);
           return;
         }
 
@@ -182,5 +215,5 @@ export default createESLintRule<Options, MessageIds>({
 
 export const RULE_DOCS_EXTENSION = {
   rationale:
-    'Angular `host` metadata keys of the form `[attr.name]` set a literal attribute with exactly that name, so `[attr.ariaLabel]` creates an `arialabel` attribute that assistive technologies ignore. Likewise, a static key such as `attr.aria-label` creates an attribute literally named `attr.aria-label`. Binding the hyphenated ARIA attribute (for example `[aria-label]` or `[attr.aria-label]`) makes the intent explicit, works for every ARIA attribute (including those without a DOM reflection property), and avoids silently broken accessibility. Misspelled ARIA attribute names are also reported because they have no effect.',
+    "Angular `host` metadata keys of the form `[attr.name]` set a literal attribute with exactly that name, so `[attr.ariaLabel]` creates an `arialabel` attribute that assistive technologies ignore. The same applies to `@HostBinding('attr.ariaLabel')`, and `@HostBinding('ariaLabel')` binds the DOM property rather than the ARIA attribute. Likewise, a static key such as `attr.aria-label` creates an attribute literally named `attr.aria-label`. Binding the hyphenated ARIA attribute (for example `[aria-label]` or `[attr.aria-label]`) makes the intent explicit, works for every ARIA attribute (including those without a DOM reflection property), and avoids silently broken accessibility. Misspelled ARIA attribute names are also reported because they have no effect.",
 };

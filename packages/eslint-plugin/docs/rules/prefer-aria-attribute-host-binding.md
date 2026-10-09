@@ -15,7 +15,7 @@
 
 # `@angular-eslint/prefer-aria-attribute-host-binding`
 
-Ensures that ARIA host bindings in `host` metadata use hyphenated ARIA attribute names
+Ensures that ARIA host bindings in `host` metadata and `@HostBinding` decorators use hyphenated ARIA attribute names
 
 - Type: suggestion
 - 🔧 Supports autofix (`--fix`)
@@ -26,7 +26,7 @@ Ensures that ARIA host bindings in `host` metadata use hyphenated ARIA attribute
 
 ## Rationale
 
-Angular `host` metadata keys of the form `[attr.name]` set a literal attribute with exactly that name, so `[attr.ariaLabel]` creates an `arialabel` attribute that assistive technologies ignore. Likewise, a static key such as `attr.aria-label` creates an attribute literally named `attr.aria-label`. Binding the hyphenated ARIA attribute (for example `[aria-label]` or `[attr.aria-label]`) makes the intent explicit, works for every ARIA attribute (including those without a DOM reflection property), and avoids silently broken accessibility. Misspelled ARIA attribute names are also reported because they have no effect.
+Angular `host` metadata keys of the form `[attr.name]` set a literal attribute with exactly that name, so `[attr.ariaLabel]` creates an `arialabel` attribute that assistive technologies ignore. The same applies to `@HostBinding('attr.ariaLabel')`, and `@HostBinding('ariaLabel')` binds the DOM property rather than the ARIA attribute. Likewise, a static key such as `attr.aria-label` creates an attribute literally named `attr.aria-label`. Binding the hyphenated ARIA attribute (for example `[aria-label]` or `[attr.aria-label]`) makes the intent explicit, works for every ARIA attribute (including those without a DOM reflection property), and avoids silently broken accessibility. Misspelled ARIA attribute names are also reported because they have no effect.
 
 <br>
 
@@ -329,6 +329,216 @@ class Test {}
 class Test {}
 ```
 
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/prefer-aria-attribute-host-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```ts
+@Directive({})
+class Test {
+  @HostBinding('attr.ariaValueText') valueText = 'Medium';
+               ~~~~~~~~~~~~~~~~~~~~
+}
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/prefer-aria-attribute-host-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```ts
+@Directive({})
+class Test {
+  @HostBinding("attr.ariaBusy") busy = true;
+               ~~~~~~~~~~~~~~~
+}
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/prefer-aria-attribute-host-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```ts
+@Directive({})
+class Test {
+  @HostBinding('attr.ariaFoo') foo = 'foo';
+               ~~~~~~~~~~~~~~
+}
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/prefer-aria-attribute-host-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```ts
+@Component({})
+class Test {
+  @HostBinding('ariaRoleDescription') roleDescription = 'slide';
+               ~~~~~~~~~~~~~~~~~~~~~
+}
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/prefer-aria-attribute-host-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```ts
+@Component({})
+class Test {
+  @HostBinding('ariaDropEffect') dropEffect = 'move';
+               ~~~~~~~~~~~~~~~~
+}
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/prefer-aria-attribute-host-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```ts
+@Directive({})
+class Test {
+  @HostBinding('attr.aria-labelby') labelledBy = 'id';
+               ~~~~~~~~~~~~~~~~~~~
+}
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/prefer-aria-attribute-host-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```ts
+@Directive({})
+class Test {
+  @HostBinding('aria-labelby') labelledBy = 'id';
+               ~~~~~~~~~~~~~~
+}
+```
+
 </details>
 
 <br>
@@ -468,6 +678,72 @@ class Test {}
   },
 })
 class Test {}
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/prefer-aria-attribute-host-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ✅ Valid Code
+
+```ts
+@Directive({})
+class Test {
+  @HostBinding('attr.aria-keyshortcuts') keyShortcuts = 'Alt+K';
+  @HostBinding('aria-valuetext') valueText = 'Medium';
+  @HostBinding('attr.aria-busy') busy = true;
+  @HostBinding('class.active') active = true;
+  @HostBinding('attr.title') title = 'Title';
+  @HostBinding() role = 'button';
+  @HostBinding(name) dynamic = 'dynamic';
+}
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/prefer-aria-attribute-host-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ✅ Valid Code
+
+```ts
+@Component({})
+class Test {
+  @HostBinding('ariaDescribedByElements') elements = [];
+  @HostBinding('ATTR.ariaLabel') upperCasePrefix = 'label';
+  @HostBinding('attr.arialabel') lowerCase = 'label';
+}
 ```
 
 </details>

@@ -50,6 +50,26 @@ export const valid = [
     })
     class Test {}
   `,
+  `
+    @Directive({})
+    class Test {
+      @HostBinding('attr.aria-keyshortcuts') keyShortcuts = 'Alt+K';
+      @HostBinding('aria-valuetext') valueText = 'Medium';
+      @HostBinding('attr.aria-busy') busy = true;
+      @HostBinding('class.active') active = true;
+      @HostBinding('attr.title') title = 'Title';
+      @HostBinding() role = 'button';
+      @HostBinding(name) dynamic = 'dynamic';
+    }
+  `,
+  `
+    @Component({})
+    class Test {
+      @HostBinding('ariaDescribedByElements') elements = [];
+      @HostBinding('ATTR.ariaLabel') upperCasePrefix = 'label';
+      @HostBinding('attr.arialabel') lowerCase = 'label';
+    }
+  `,
 ];
 
 export const invalid = [
@@ -259,5 +279,139 @@ export const invalid = [
       `,
       },
     ],
+  }),
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should fail and autofix when a `@HostBinding` uses `attr.` followed by a camelCase ARIA name',
+    annotatedSource: `
+      @Directive({})
+      class Test {
+        @HostBinding('attr.ariaValueText') valueText = 'Medium';
+                     ~~~~~~~~~~~~~~~~~~~~
+      }
+      `,
+    messageId: messageIdInvalidAttrBindingName,
+    data: { attribute: 'ariaValueText', suggested: 'aria-valuetext' },
+    annotatedOutput: `
+      @Directive({})
+      class Test {
+        @HostBinding('attr.aria-valuetext') valueText = 'Medium';
+                     
+      }
+      `,
+  }),
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should preserve the quote style when autofixing a `@HostBinding` name',
+    annotatedSource: `
+      @Directive({})
+      class Test {
+        @HostBinding("attr.ariaBusy") busy = true;
+                     ~~~~~~~~~~~~~~~
+      }
+      `,
+    messageId: messageIdInvalidAttrBindingName,
+    data: { attribute: 'ariaBusy', suggested: 'aria-busy' },
+    annotatedOutput: `
+      @Directive({})
+      class Test {
+        @HostBinding("attr.aria-busy") busy = true;
+                     
+      }
+      `,
+  }),
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should fail without a fix when a `@HostBinding` uses `attr.` followed by an unknown camelCase ARIA name',
+    annotatedSource: `
+      @Directive({})
+      class Test {
+        @HostBinding('attr.ariaFoo') foo = 'foo';
+                     ~~~~~~~~~~~~~~
+      }
+      `,
+    messageId: messageIdInvalidAttrBindingName,
+    data: { attribute: 'ariaFoo', suggested: 'aria-*' },
+  }),
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should fail when a `@HostBinding` binds an ARIA DOM property instead of the ARIA attribute',
+    annotatedSource: `
+      @Component({})
+      class Test {
+        @HostBinding('ariaRoleDescription') roleDescription = 'slide';
+                     ~~~~~~~~~~~~~~~~~~~~~
+      }
+      `,
+    messageId: messageIdPreferAriaAttributeOverProperty,
+    data: {
+      attribute: 'aria-roledescription',
+      property: 'ariaRoleDescription',
+    },
+    suggestions: [
+      {
+        messageId: 'suggestAriaAttribute',
+        data: { attribute: 'aria-roledescription' },
+        output: `
+      @Component({})
+      class Test {
+        @HostBinding('aria-roledescription') roleDescription = 'slide';
+                     
+      }
+      `,
+      },
+    ],
+  }),
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should suggest an `attr.` `@HostBinding` when the ARIA attribute has no DOM property',
+    annotatedSource: `
+      @Component({})
+      class Test {
+        @HostBinding('ariaDropEffect') dropEffect = 'move';
+                     ~~~~~~~~~~~~~~~~
+      }
+      `,
+    messageId: messageIdPreferAriaAttributeOverProperty,
+    data: { attribute: 'attr.aria-dropeffect', property: 'ariaDropEffect' },
+    suggestions: [
+      {
+        messageId: 'suggestAriaAttribute',
+        data: { attribute: 'attr.aria-dropeffect' },
+        output: `
+      @Component({})
+      class Test {
+        @HostBinding('attr.aria-dropeffect') dropEffect = 'move';
+                     
+      }
+      `,
+      },
+    ],
+  }),
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should fail when a `@HostBinding` binds an unknown hyphenated ARIA attribute with `attr.`',
+    annotatedSource: `
+      @Directive({})
+      class Test {
+        @HostBinding('attr.aria-labelby') labelledBy = 'id';
+                     ~~~~~~~~~~~~~~~~~~~
+      }
+      `,
+    messageId: messageIdUnknownAriaAttribute,
+    data: { attribute: 'aria-labelby' },
+  }),
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should fail when a `@HostBinding` binds an unknown hyphenated ARIA attribute without `attr.`',
+    annotatedSource: `
+      @Directive({})
+      class Test {
+        @HostBinding('aria-labelby') labelledBy = 'id';
+                     ~~~~~~~~~~~~~~
+      }
+      `,
+    messageId: messageIdUnknownAriaAttribute,
+    data: { attribute: 'aria-labelby' },
   }),
 ];
