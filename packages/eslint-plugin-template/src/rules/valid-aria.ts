@@ -25,7 +25,9 @@ export type MessageIds =
   | 'validAriaValue'
   | 'suggestRemoveInvalidAria'
   | 'invalidAttrBindingName'
-  | 'suggestRenameAria';
+  | 'suggestRenameAria'
+  | 'invalidStaticAttrPrefix'
+  | 'suggestRemoveAttrPrefix';
 export const RULE_NAME = 'valid-aria';
 
 export default createESLintRule<Options, MessageIds>({
@@ -46,6 +48,9 @@ export default createESLintRule<Options, MessageIds>({
       invalidAttrBindingName:
         '`attr.{{attribute}}` sets a literal attribute named `{{attribute}}`; use the hyphenated `attr.{{suggested}}` instead',
       suggestRenameAria: 'Rename to `attr.{{suggested}}`',
+      invalidStaticAttrPrefix:
+        '`{{attribute}}` is a static attribute literally named `{{attribute}}`; use `{{suggested}}` instead',
+      suggestRemoveAttrPrefix: 'Rename to `{{suggested}}`',
     },
     defaultOptions: [],
   },
@@ -61,6 +66,37 @@ export default createESLintRule<Options, MessageIds>({
     ]);
 
     return {
+      'Element > TextAttribute[name=/^attr\\.aria-/]'(
+        node: TmplAstTextAttribute,
+      ) {
+        const { name: attribute, sourceSpan, keySpan } = node;
+        const suggested = attribute.slice('attr.'.length);
+        const loc = parserServices.convertNodeSourceSpanToLoc(sourceSpan);
+
+        if (!aria.get(suggested as ARIAProperty)) {
+          context.report({
+            loc,
+            messageId: 'invalidStaticAttrPrefix',
+            data: { attribute, suggested },
+          });
+          return;
+        }
+
+        const start = keySpan?.start.offset ?? sourceSpan.start.offset;
+        context.report({
+          loc,
+          messageId: 'invalidStaticAttrPrefix',
+          data: { attribute, suggested },
+          suggest: [
+            {
+              messageId: 'suggestRemoveAttrPrefix',
+              data: { suggested },
+              fix: (fixer) =>
+                fixer.removeRange([start, start + 'attr.'.length]),
+            },
+          ],
+        });
+      },
       'Element > BoundAttribute[name=/^aria[A-Z]/]'(
         node: BoundAttributeWithOriginalType,
       ) {
