@@ -7,21 +7,21 @@ import {
   TmplAstBoundAttribute,
 } from '@angular-eslint/bundled-angular-compiler';
 import {
+  ATTR_PREFIX,
   getAriaAttributeBindingTarget,
   getAriaAttributeForProperty,
+  getAriaBindingTargetName,
+  getOriginalBindingType,
   getTemplateParserServices,
 } from '@angular-eslint/utils';
 import { createESLintRule } from '../utils/create-eslint-rule';
-
-type BoundAttributeWithOriginalType = TmplAstBoundAttribute & {
-  __originalType?: BindingType;
-};
+import { isNativeElement } from '../utils/is-native-element';
 
 // Inputs hoisted onto a structural-directive template are shared with the
 // child element, so the parser may overwrite `__originalType` with the
 // constructor name. Fall back to inspecting the binding key in that case.
-function isPropertyBinding(input: BoundAttributeWithOriginalType): boolean {
-  const originalType = input.__originalType ?? input.type;
+function isPropertyBinding(input: TmplAstBoundAttribute): boolean {
+  const originalType = getOriginalBindingType<unknown>(input);
   if (typeof originalType === 'number') {
     return originalType === BindingType.Property;
   }
@@ -29,10 +29,8 @@ function isPropertyBinding(input: BoundAttributeWithOriginalType): boolean {
   return key === input.name;
 }
 
-const ATTR_PREFIX = 'attr.';
-
-function isAttrBinding(input: BoundAttributeWithOriginalType): boolean {
-  const originalType = input.__originalType ?? input.type;
+function isAttrBinding(input: TmplAstBoundAttribute): boolean {
+  const originalType = getOriginalBindingType<unknown>(input);
   if (typeof originalType === 'number') {
     return originalType === BindingType.Attribute;
   }
@@ -82,68 +80,21 @@ export default createESLintRule<Options, MessageIds>({
     const parserServices = getTemplateParserServices(context);
     const reportedOffsets = new Set<number>();
 
-    function checkInputs(
-      tagName: string,
-      inputs: readonly BoundAttributeWithOriginalType[],
+    function report(
+      { sourceSpan, keySpan }: TmplAstBoundAttribute,
+      messageId: Exclude<MessageIds, 'suggestAriaAttribute'>,
+      data: Record<string, string>,
+      attribute: string,
+      replaceLength: number,
     ): void {
-      for (const input of inputs) {
-        if (checkAttrPrefix && isAttrBinding(input)) {
-          checkAttrInput(tagName, input);
-          continue;
-        }
-        if (!isPropertyBinding(input)) continue;
-
-        const { name, sourceSpan, keySpan } = input;
-        const ariaAttribute = getAriaAttributeForProperty(tagName, name);
-        if (!ariaAttribute) continue;
-
-        const offset = sourceSpan.start.offset;
-        if (reportedOffsets.has(offset)) continue;
-        reportedOffsets.add(offset);
-
-        const attribute = ariaAttribute.attributeOnly
-          ? `attr.${ariaAttribute.attributeName}`
-          : ariaAttribute.attributeName;
-
-        context.report({
-          loc: parserServices.convertNodeSourceSpanToLoc(sourceSpan),
-          messageId: 'preferAriaAttributeOverProperty',
-          data: { property: name, attribute },
-          suggest: keySpan
-            ? [
-                {
-                  messageId: 'suggestAriaAttribute',
-                  data: { attribute },
-                  fix: (fixer) =>
-                    fixer.replaceTextRange(
-                      [keySpan.end.offset - name.length, keySpan.end.offset],
-                      attribute,
-                    ),
-                },
-              ]
-            : [],
-        });
-      }
-    }
-
-    function checkAttrInput(
-      tagName: string,
-      input: BoundAttributeWithOriginalType,
-    ): void {
-      const { name, sourceSpan, keySpan } = input;
-      const target = getAriaAttributeBindingTarget(tagName, name);
-      if (!target || target.attributeOnly) return;
-
       const offset = sourceSpan.start.offset;
       if (reportedOffsets.has(offset)) return;
       reportedOffsets.add(offset);
 
-      const attribute = target.attributeName;
-
       context.report({
         loc: parserServices.convertNodeSourceSpanToLoc(sourceSpan),
-        messageId: 'preferAriaAttributeOverAttrPrefix',
-        data: { attribute },
+        messageId,
+        data,
         suggest: keySpan
           ? [
               {
@@ -151,16 +102,56 @@ export default createESLintRule<Options, MessageIds>({
                 data: { attribute },
                 fix: (fixer) =>
                   fixer.replaceTextRange(
-                    [
-                      keySpan.end.offset - (ATTR_PREFIX.length + name.length),
-                      keySpan.end.offset,
-                    ],
+                    [keySpan.end.offset - replaceLength, keySpan.end.offset],
                     attribute,
                   ),
               },
             ]
           : [],
       });
+    }
+
+    function checkInputs(
+      tagName: string,
+      inputs: readonly TmplAstBoundAttribute[],
+    ): void {
+      if (!isNativeElement(tagName)) return;
+
+      for (const input of inputs) {
+        if (checkAttrPrefix && isAttrBinding(input)) {
+          checkAttrInput(input);
+          continue;
+        }
+        if (!isPropertyBinding(input)) continue;
+
+        const { name } = input;
+        const target = getAriaAttributeForProperty(name);
+        if (!target) continue;
+
+        const attribute = getAriaBindingTargetName(target);
+        report(
+          input,
+          'preferAriaAttributeOverProperty',
+          { property: name, attribute },
+          attribute,
+          name.length,
+        );
+      }
+    }
+
+    function checkAttrInput(input: TmplAstBoundAttribute): void {
+      const { name } = input;
+      const target = getAriaAttributeBindingTarget(name);
+      if (!target || target.attributeOnly) return;
+
+      const attribute = target.attributeName;
+      report(
+        input,
+        'preferAriaAttributeOverAttrPrefix',
+        { attribute },
+        attribute,
+        ATTR_PREFIX.length + name.length,
+      );
     }
 
     return {

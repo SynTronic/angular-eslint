@@ -1,36 +1,25 @@
 import type { TSESTree } from '@typescript-eslint/utils';
 import {
+  ATTR_PREFIX,
+  getAriaAttributeBindingTarget,
   getAriaAttributeForProperty,
-  getAriaAttributeKeys,
+  getAriaBindingTargetName,
+  isKnownAriaAttribute,
   Selectors,
 } from '@angular-eslint/utils';
 import { createESLintRule } from '../utils/create-eslint-rule';
 
-type Options = [];
+export type Options = [{ readonly checkAttrPrefix?: boolean }];
 
 export type MessageIds =
   | 'invalidAttrBindingName'
   | 'invalidStaticAttrPrefix'
   | 'suggestRemoveAttrPrefix'
   | 'preferAriaAttributeOverProperty'
+  | 'preferAriaAttributeOverAttrPrefix'
   | 'suggestAriaAttribute'
   | 'unknownAriaAttribute';
 export const RULE_NAME = 'prefer-aria-attribute-host-binding';
-
-const ADDITIONAL_ARIA_ATTRIBUTE_KEYS: readonly string[] = [
-  'aria-braillelabel',
-  'aria-brailleroledescription',
-  'aria-colindextext',
-  'aria-description',
-  'aria-grabbed',
-  'aria-keyshortcuts',
-  'aria-roledescription',
-  'aria-rowindextext',
-];
-
-const EXCLUDED_ARIA_ATTRIBUTE_KEYS: ReadonlySet<string> = new Set([
-  'aria-dragged',
-]);
 
 const BOUND_KEY_PATTERN = /^\[(attr\.)?(aria[-A-Z].*)\]$/i;
 const HOST_BINDING_NAME_PATTERN = /^(attr\.)?(aria[-A-Z].*)$/i;
@@ -38,24 +27,13 @@ const STATIC_ATTR_KEY_PATTERN = /^attr\.(aria[-A-Z].*)$/i;
 const HYPHENATED_ARIA_PATTERN = /^aria-/i;
 const CAMEL_CASE_ARIA_PATTERN = /^aria[A-Z]/;
 
-let validAriaAttributeKeys: ReadonlySet<string> | null = null;
-
-function isKnownAriaAttribute(name: string): boolean {
-  validAriaAttributeKeys ??= new Set(
-    [...getAriaAttributeKeys(), ...ADDITIONAL_ARIA_ATTRIBUTE_KEYS].filter(
-      (key) => !EXCLUDED_ARIA_ATTRIBUTE_KEYS.has(key),
-    ),
-  );
-  return validAriaAttributeKeys.has(name.toLowerCase());
-}
-
 /**
  * Resolves a camelCase ARIA name (e.g. `ariaRoleDescription`) to its
  * hyphenated ARIA attribute name, or `null` when it cannot be resolved.
  */
 function resolveCamelCaseAriaName(name: string): string | null {
   if (!CAMEL_CASE_ARIA_PATTERN.test(name)) return null;
-  const mapped = getAriaAttributeForProperty('div', name);
+  const mapped = getAriaAttributeForProperty(name);
   if (!mapped || !isKnownAriaAttribute(mapped.attributeName)) return null;
   return mapped.attributeName;
 }
@@ -80,7 +58,19 @@ export default createESLintRule<Options, MessageIds>({
     },
     fixable: 'code',
     hasSuggestions: true,
-    schema: [],
+    schema: [
+      {
+        type: 'object',
+        properties: {
+          checkAttrPrefix: {
+            type: 'boolean',
+            description:
+              'Whether to report `attr.aria-*` host bindings that can be replaced by the shorter `aria-*` attribute binding.',
+          },
+        },
+        additionalProperties: false,
+      },
+    ],
     messages: {
       invalidAttrBindingName:
         '`attr.{{attribute}}` sets a literal attribute named `{{attribute}}`; use the hyphenated `attr.{{suggested}}` instead',
@@ -89,12 +79,14 @@ export default createESLintRule<Options, MessageIds>({
       suggestRemoveAttrPrefix: 'Rename to `{{suggested}}`',
       preferAriaAttributeOverProperty:
         'Use the `{{attribute}}` attribute binding instead of the `{{property}}` DOM property binding',
+      preferAriaAttributeOverAttrPrefix:
+        'Use the `{{attribute}}` attribute binding instead of the `attr.{{attribute}}` binding',
       suggestAriaAttribute: 'Replace with `[{{attribute}}]`',
       unknownAriaAttribute: '`{{attribute}}` is not a known ARIA attribute',
     },
-    defaultOptions: [],
+    defaultOptions: [{ checkAttrPrefix: false }],
   },
-  create(context) {
+  create(context, [{ checkAttrPrefix }]) {
     function checkBoundAriaName(
       node: TSESTree.Node,
       attrPrefix: string | undefined,
@@ -108,7 +100,26 @@ export default createESLintRule<Options, MessageIds>({
             messageId: 'unknownAriaAttribute',
             data: { attribute: name },
           });
+          return;
         }
+        if (!attrPrefix || !checkAttrPrefix) return;
+
+        const target = getAriaAttributeBindingTarget(name);
+        if (!target || target.attributeOnly) return;
+        const attribute = target.attributeName;
+        context.report({
+          node,
+          messageId: 'preferAriaAttributeOverAttrPrefix',
+          data: { attribute },
+          suggest: [
+            {
+              messageId: 'suggestAriaAttribute',
+              data: { attribute },
+              fix: (fixer) =>
+                fixer.replaceText(node, formatReplacement(attribute)),
+            },
+          ],
+        });
         return;
       }
 
@@ -122,17 +133,18 @@ export default createESLintRule<Options, MessageIds>({
           data: { attribute: name, suggested: suggested ?? 'aria-*' },
           ...(suggested && {
             fix: (fixer) =>
-              fixer.replaceText(node, formatReplacement(`attr.${suggested}`)),
+              fixer.replaceText(
+                node,
+                formatReplacement(`${ATTR_PREFIX}${suggested}`),
+              ),
           }),
         });
         return;
       }
 
-      const mapped = getAriaAttributeForProperty('div', name);
+      const mapped = getAriaAttributeForProperty(name);
       if (!mapped) return;
-      const attribute = mapped.attributeOnly
-        ? `attr.${mapped.attributeName}`
-        : mapped.attributeName;
+      const attribute = getAriaBindingTargetName(mapped);
       context.report({
         node,
         messageId: 'preferAriaAttributeOverProperty',
@@ -160,7 +172,7 @@ export default createESLintRule<Options, MessageIds>({
         }
 
         const match = HOST_BINDING_NAME_PATTERN.exec(argument.value);
-        if (!match || (match[1] && match[1] !== 'attr.')) return;
+        if (!match || (match[1] && match[1] !== ATTR_PREFIX)) return;
 
         const quote = context.sourceCode.getText(argument)[0];
         checkBoundAriaName(
@@ -177,7 +189,7 @@ export default createESLintRule<Options, MessageIds>({
         if (keyText === null) return;
 
         const boundMatch = BOUND_KEY_PATTERN.exec(keyText);
-        if (boundMatch && (!boundMatch[1] || boundMatch[1] === 'attr.')) {
+        if (boundMatch && (!boundMatch[1] || boundMatch[1] === ATTR_PREFIX)) {
           const [, attrPrefix, name] = boundMatch;
 
           checkBoundAriaName(key, attrPrefix, name, (n) => `'[${n}]'`);
@@ -185,7 +197,7 @@ export default createESLintRule<Options, MessageIds>({
         }
 
         const staticMatch = STATIC_ATTR_KEY_PATTERN.exec(keyText);
-        if (!staticMatch || !keyText.startsWith('attr.')) return;
+        if (!staticMatch || !keyText.startsWith(ATTR_PREFIX)) return;
 
         const [, name] = staticMatch;
         const suggested = HYPHENATED_ARIA_PATTERN.test(name)

@@ -3,8 +3,12 @@ import type { MessageIds } from '../../../src/rules/prefer-aria-attribute-host-b
 
 const messageIdInvalidAttrBindingName: MessageIds = 'invalidAttrBindingName';
 const messageIdInvalidStaticAttrPrefix: MessageIds = 'invalidStaticAttrPrefix';
+const messageIdPreferAriaAttributeOverAttrPrefix: MessageIds =
+  'preferAriaAttributeOverAttrPrefix';
 const messageIdPreferAriaAttributeOverProperty: MessageIds =
   'preferAriaAttributeOverProperty';
+const messageIdSuggestAriaAttribute: MessageIds = 'suggestAriaAttribute';
+const messageIdSuggestRemoveAttrPrefix: MessageIds = 'suggestRemoveAttrPrefix';
 const messageIdUnknownAriaAttribute: MessageIds = 'unknownAriaAttribute';
 
 export const valid = [
@@ -70,6 +74,33 @@ export const valid = [
       @HostBinding('attr.arialabel') lowerCase = 'label';
     }
   `,
+  {
+    code: `
+      @Directive({
+        host: {
+          '[attr.aria-roledescription]': 'description',
+          '[aria-label]': 'label',
+        },
+      })
+      class Test {
+        @HostBinding('attr.aria-keyshortcuts') keyShortcuts = 'Alt+K';
+      }
+    `,
+  },
+  {
+    code: `
+      @Directive({
+        host: {
+          '[attr.aria-relevant]': 'relevant',
+          '[aria-label]': 'label',
+        },
+      })
+      class Test {
+        @HostBinding('attr.aria-relevant') relevant = 'additions';
+      }
+    `,
+    options: [{ checkAttrPrefix: true }],
+  },
 ];
 
 export const invalid = [
@@ -131,7 +162,7 @@ export const invalid = [
     data: { attribute: 'aria-label', property: 'ariaLabel' },
     suggestions: [
       {
-        messageId: 'suggestAriaAttribute',
+        messageId: messageIdSuggestAriaAttribute,
         data: { attribute: 'aria-label' },
         output: `
       @Component({
@@ -161,7 +192,7 @@ export const invalid = [
     data: { attribute: 'attr.aria-label', suggested: 'aria-label' },
     suggestions: [
       {
-        messageId: 'suggestRemoveAttrPrefix',
+        messageId: messageIdSuggestRemoveAttrPrefix,
         data: { suggested: 'aria-label' },
         output: `
       @Component({
@@ -191,7 +222,7 @@ export const invalid = [
     data: { attribute: 'attr.ariaLabel', suggested: 'aria-label' },
     suggestions: [
       {
-        messageId: 'suggestRemoveAttrPrefix',
+        messageId: messageIdSuggestRemoveAttrPrefix,
         data: { suggested: 'aria-label' },
         output: `
       @Component({
@@ -266,7 +297,7 @@ export const invalid = [
     data: { attribute: 'attr.aria-dropeffect', property: 'ariaDropEffect' },
     suggestions: [
       {
-        messageId: 'suggestAriaAttribute',
+        messageId: messageIdSuggestAriaAttribute,
         data: { attribute: 'attr.aria-dropeffect' },
         output: `
       @Component({
@@ -350,7 +381,7 @@ export const invalid = [
     },
     suggestions: [
       {
-        messageId: 'suggestAriaAttribute',
+        messageId: messageIdSuggestAriaAttribute,
         data: { attribute: 'aria-roledescription' },
         output: `
       @Component({})
@@ -376,7 +407,7 @@ export const invalid = [
     data: { attribute: 'attr.aria-dropeffect', property: 'ariaDropEffect' },
     suggestions: [
       {
-        messageId: 'suggestAriaAttribute',
+        messageId: messageIdSuggestAriaAttribute,
         data: { attribute: 'attr.aria-dropeffect' },
         output: `
       @Component({})
@@ -413,5 +444,63 @@ export const invalid = [
       `,
     messageId: messageIdUnknownAriaAttribute,
     data: { attribute: 'aria-labelby' },
+  }),
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should fail when `checkAttrPrefix` is enabled and an `attr.` host binding targets an ARIA attribute with a DOM property',
+    annotatedSource: `
+      @Component({
+        host: {
+          '[attr.aria-label]': 'label',
+          ~~~~~~~~~~~~~~~~~~~
+        },
+      })
+      class Test {}
+      `,
+    options: [{ checkAttrPrefix: true }],
+    messageId: messageIdPreferAriaAttributeOverAttrPrefix,
+    data: { attribute: 'aria-label' },
+    suggestions: [
+      {
+        messageId: messageIdSuggestAriaAttribute,
+        data: { attribute: 'aria-label' },
+        output: `
+      @Component({
+        host: {
+          '[aria-label]': 'label',
+          
+        },
+      })
+      class Test {}
+      `,
+      },
+    ],
+  }),
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should fail when `checkAttrPrefix` is enabled and an `attr.` `@HostBinding` targets an ARIA attribute with a DOM property',
+    annotatedSource: `
+      @Directive({})
+      class Test {
+        @HostBinding("attr.aria-busy") busy = true;
+                     ~~~~~~~~~~~~~~~~
+      }
+      `,
+    options: [{ checkAttrPrefix: true }],
+    messageId: messageIdPreferAriaAttributeOverAttrPrefix,
+    data: { attribute: 'aria-busy' },
+    suggestions: [
+      {
+        messageId: messageIdSuggestAriaAttribute,
+        data: { attribute: 'aria-busy' },
+        output: `
+      @Directive({})
+      class Test {
+        @HostBinding("aria-busy") busy = true;
+                     
+      }
+      `,
+      },
+    ],
   }),
 ];

@@ -32,7 +32,19 @@ Angular `host` metadata keys of the form `[attr.name]` set a literal attribute w
 
 ## Rule Options
 
-The rule does not have any configuration options.
+The rule accepts an options object with the following properties:
+
+```ts
+interface Options {
+  /**
+   * Whether to report `attr.aria-*` host bindings that can be replaced by the shorter `aria-*` attribute binding.
+   *
+   * Default: `false`
+   */
+  checkAttrPrefix?: boolean;
+}
+
+```
 
 <br>
 
@@ -539,6 +551,74 @@ class Test {
 }
 ```
 
+<br>
+
+---
+
+<br>
+
+#### Custom Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/prefer-aria-attribute-host-binding": [
+      "error",
+      {
+        "checkAttrPrefix": true
+      }
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```ts
+@Component({
+  host: {
+    '[attr.aria-label]': 'label',
+    ~~~~~~~~~~~~~~~~~~~
+  },
+})
+class Test {}
+```
+
+<br>
+
+---
+
+<br>
+
+#### Custom Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/prefer-aria-attribute-host-binding": [
+      "error",
+      {
+        "checkAttrPrefix": true
+      }
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```ts
+@Directive({})
+class Test {
+  @HostBinding("attr.aria-busy") busy = true;
+               ~~~~~~~~~~~~~~~~
+}
+```
+
 </details>
 
 <br>
@@ -743,6 +823,77 @@ class Test {
   @HostBinding('ariaDescribedByElements') elements = [];
   @HostBinding('ATTR.ariaLabel') upperCasePrefix = 'label';
   @HostBinding('attr.arialabel') lowerCase = 'label';
+}
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/prefer-aria-attribute-host-binding": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ✅ Valid Code
+
+```ts
+@Directive({
+  host: {
+    '[attr.aria-roledescription]': 'description',
+    '[aria-label]': 'label',
+  },
+})
+class Test {
+  @HostBinding('attr.aria-keyshortcuts') keyShortcuts = 'Alt+K';
+}
+```
+
+<br>
+
+---
+
+<br>
+
+#### Custom Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/prefer-aria-attribute-host-binding": [
+      "error",
+      {
+        "checkAttrPrefix": true
+      }
+    ]
+  }
+}
+```
+
+<br>
+
+#### ✅ Valid Code
+
+```ts
+@Directive({
+  host: {
+    '[attr.aria-relevant]': 'relevant',
+    '[aria-label]': 'label',
+  },
+})
+class Test {
+  @HostBinding('attr.aria-relevant') relevant = 'additions';
 }
 ```
 

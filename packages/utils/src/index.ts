@@ -11,10 +11,14 @@ export {
 export { getAriaAttributeKeys } from './eslint-plugin/get-aria-attribute-keys';
 export { getNativeEventNames } from './eslint-plugin/get-native-event-names';
 export {
+  ATTR_PREFIX,
   getAriaAttributeBindingTarget,
   getAriaAttributeForProperty,
-} from './eslint-plugin-template/aria-bindings';
-export type { AriaAttributeForProperty } from './eslint-plugin-template/aria-bindings';
+  getAriaBindingTargetName,
+  getOriginalBindingType,
+  isKnownAriaAttribute,
+} from './aria-bindings';
+export type { AriaBindingTarget } from './aria-bindings';
 
 export * as ASTUtils from './eslint-plugin/ast-utils';
 export * as CommentUtils from './eslint-plugin/comment-utils';

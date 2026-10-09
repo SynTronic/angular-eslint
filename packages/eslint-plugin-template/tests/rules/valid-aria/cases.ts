@@ -11,7 +11,6 @@ const suggestRemoveInvalidAria: MessageIds = 'suggestRemoveInvalidAria';
 const invalidAttrBindingName: MessageIds = 'invalidAttrBindingName';
 const suggestRenameAria: MessageIds = 'suggestRenameAria';
 const invalidStaticAttrPrefix: MessageIds = 'invalidStaticAttrPrefix';
-const suggestRemoveAttrPrefix: MessageIds = 'suggestRemoveAttrPrefix';
 
 export const valid: readonly (string | ValidTestCase<Options>)[] = [
   '<input aria-labelledby="Text">',
@@ -248,7 +247,7 @@ export const invalid: readonly InvalidTestCase<MessageIds, Options>[] = [
     suggestions: [
       {
         messageId: suggestRenameAria,
-        data: { suggested: 'aria-label' },
+        data: { suggested: 'attr.aria-label' },
         output: `
         <div [attr.aria-label]="label"></div>
              
@@ -268,7 +267,7 @@ export const invalid: readonly InvalidTestCase<MessageIds, Options>[] = [
     suggestions: [
       {
         messageId: suggestRenameAria,
-        data: { suggested: 'aria-label' },
+        data: { suggested: 'attr.aria-label' },
         output: `
         <app-foo [attr.aria-label]="x"></app-foo>
                  
@@ -288,7 +287,7 @@ export const invalid: readonly InvalidTestCase<MessageIds, Options>[] = [
     suggestions: [
       {
         messageId: suggestRenameAria,
-        data: { suggested: 'aria-describedby' },
+        data: { suggested: 'attr.aria-describedby' },
         output: `
         <div [attr.aria-describedby]="x"></div>
              
@@ -307,7 +306,7 @@ export const invalid: readonly InvalidTestCase<MessageIds, Options>[] = [
     data: { attribute: 'attr.aria-label', suggested: 'aria-label' },
     suggestions: [
       {
-        messageId: suggestRemoveAttrPrefix,
+        messageId: suggestRenameAria,
         data: { suggested: 'aria-label' },
         output: `
         <div aria-label="Close"></div>
@@ -358,7 +357,7 @@ export const invalid: readonly InvalidTestCase<MessageIds, Options>[] = [
     data: { attribute: 'attr.aria-label', suggested: 'aria-label' },
     suggestions: [
       {
-        messageId: suggestRemoveAttrPrefix,
+        messageId: suggestRenameAria,
         data: { suggested: 'aria-label' },
         output: `
         <div *ngIf="c" aria-label="x"></div>
@@ -366,5 +365,36 @@ export const invalid: readonly InvalidTestCase<MessageIds, Options>[] = [
       `,
       },
     ],
+  }),
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should lowercase the ARIA name of an uppercase bound `attr.` attribute before checking it',
+    annotatedSource: `
+        <div [attr.ARIA-labelx]="x"></div>
+             ~~~~~~~~~~~~~~~~~~~~~~
+      `,
+    messageId: accessibilityValidAria,
+    data: { attribute: 'ARIA-labelx' },
+    suggestions: [
+      {
+        messageId: suggestRemoveInvalidAria,
+        data: { attribute: 'ARIA-labelx' },
+        output: `
+        <div></div>
+             
+      `,
+      },
+    ],
+  }),
+  convertAnnotatedSourceToFailureCase({
+    description:
+      'should lowercase the ARIA name of an uppercase static `attr.` attribute before checking it',
+    annotatedSource: `
+        <div attr.ARIA-labelx="x"></div>
+             ~~~~~~~~~~~~~~~~~~~~
+      `,
+    messageId: invalidStaticAttrPrefix,
+    data: { attribute: 'attr.ARIA-labelx', suggested: 'aria-labelx' },
+    suggestions: [],
   }),
 ];

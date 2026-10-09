@@ -8,16 +8,16 @@ import {
   TmplAstBoundAttribute,
   TmplAstTextAttribute,
 } from '@angular-eslint/bundled-angular-compiler';
-import { getTemplateParserServices } from '@angular-eslint/utils';
+import {
+  ATTR_PREFIX,
+  getOriginalBindingType,
+  getTemplateParserServices,
+} from '@angular-eslint/utils';
 import type { ARIAProperty, ARIAPropertyDefinition } from 'aria-query';
 import { aria } from 'aria-query';
 import { createESLintRule } from '../utils/create-eslint-rule';
 import { getDomElements } from '../utils/get-dom-elements';
 import { toPattern } from '../utils/to-pattern';
-
-type BoundAttributeWithOriginalType = TmplAstBoundAttribute & {
-  __originalType?: BindingType;
-};
 
 export type Options = [];
 export type MessageIds =
@@ -26,8 +26,7 @@ export type MessageIds =
   | 'suggestRemoveInvalidAria'
   | 'invalidAttrBindingName'
   | 'suggestRenameAria'
-  | 'invalidStaticAttrPrefix'
-  | 'suggestRemoveAttrPrefix';
+  | 'invalidStaticAttrPrefix';
 export const RULE_NAME = 'valid-aria';
 
 export default createESLintRule<Options, MessageIds>({
@@ -47,10 +46,9 @@ export default createESLintRule<Options, MessageIds>({
       suggestRemoveInvalidAria: 'Remove attribute `{{attribute}}`',
       invalidAttrBindingName:
         '`attr.{{attribute}}` sets a literal attribute named `{{attribute}}`; use the hyphenated `attr.{{suggested}}` instead',
-      suggestRenameAria: 'Rename to `attr.{{suggested}}`',
+      suggestRenameAria: 'Rename to `{{suggested}}`',
       invalidStaticAttrPrefix:
         '`{{attribute}}` is a static attribute literally named `{{attribute}}`; use `{{suggested}}` instead',
-      suggestRemoveAttrPrefix: 'Rename to `{{suggested}}`',
     },
     defaultOptions: [],
   },
@@ -66,41 +64,36 @@ export default createESLintRule<Options, MessageIds>({
     ]);
 
     return {
-      'Element > TextAttribute[name=/^attr\\.aria-/]'(
+      'Element > TextAttribute[name=/^attr\\.[aA][rR][iI][aA]-/]'(
         node: TmplAstTextAttribute,
       ) {
         const { name: attribute, sourceSpan, keySpan } = node;
-        const suggested = attribute.slice('attr.'.length);
-        const loc = parserServices.convertNodeSourceSpanToLoc(sourceSpan);
-
-        if (!aria.get(suggested as ARIAProperty)) {
-          context.report({
-            loc,
-            messageId: 'invalidStaticAttrPrefix',
-            data: { attribute, suggested },
-          });
-          return;
-        }
-
+        const suggested = attribute.slice(ATTR_PREFIX.length).toLowerCase();
         const start = keySpan?.start.offset ?? sourceSpan.start.offset;
+
         context.report({
-          loc,
+          loc: parserServices.convertNodeSourceSpanToLoc(sourceSpan),
           messageId: 'invalidStaticAttrPrefix',
           data: { attribute, suggested },
-          suggest: [
-            {
-              messageId: 'suggestRemoveAttrPrefix',
-              data: { suggested },
-              fix: (fixer) =>
-                fixer.removeRange([start, start + 'attr.'.length]),
-            },
-          ],
+          ...(aria.get(suggested as ARIAProperty) && {
+            suggest: [
+              {
+                messageId: 'suggestRenameAria',
+                data: { suggested },
+                fix: (fixer) =>
+                  fixer.replaceTextRange(
+                    [start, start + attribute.length],
+                    suggested,
+                  ),
+              },
+            ],
+          }),
         });
       },
       'Element > BoundAttribute[name=/^aria[A-Z]/]'(
-        node: BoundAttributeWithOriginalType,
+        node: TmplAstBoundAttribute,
       ) {
-        if ((node.__originalType ?? node.type) !== BindingType.Attribute) {
+        if (getOriginalBindingType(node) !== BindingType.Attribute) {
           return;
         }
 
@@ -124,7 +117,7 @@ export default createESLintRule<Options, MessageIds>({
           suggest: [
             {
               messageId: 'suggestRenameAria',
-              data: { suggested },
+              data: { suggested: `${ATTR_PREFIX}${suggested}` },
               fix: (fixer) =>
                 fixer.replaceTextRange(
                   [keySpan.end.offset - attribute.length, keySpan.end.offset],
@@ -134,11 +127,24 @@ export default createESLintRule<Options, MessageIds>({
           ],
         });
       },
-      [`Element[name=${elementNamePattern}] > :matches(BoundAttribute, TextAttribute)[name=/^aria-.+/]`](
+      [`Element[name=${elementNamePattern}] > :matches(BoundAttribute, TextAttribute)[name=/^[aA][rR][iI][aA]-.+/]`](
         node: TmplAstBoundAttribute | TmplAstTextAttribute,
       ) {
-        const { name: attribute, sourceSpan } = node;
-        const ariaPropertyDefinition = aria.get(attribute as ARIAProperty);
+        const { name, sourceSpan } = node;
+        // Only `attr.` bindings are matched case-insensitively.
+        if (
+          !name.startsWith('aria-') &&
+          !(
+            node instanceof TmplAstBoundAttribute &&
+            getOriginalBindingType(node) === BindingType.Attribute
+          )
+        ) {
+          return;
+        }
+        const attribute = name;
+        const ariaPropertyDefinition = aria.get(
+          attribute.toLowerCase() as ARIAProperty,
+        );
         const loc = parserServices.convertNodeSourceSpanToLoc(sourceSpan);
 
         if (!ariaPropertyDefinition) {

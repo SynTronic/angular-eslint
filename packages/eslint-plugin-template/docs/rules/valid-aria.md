@@ -330,6 +330,60 @@ The rule does not have any configuration options.
                ~~~~~~~~~~~~~~~~~~~
 ```
 
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/template/valid-aria": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```html
+<div [attr.ARIA-labelx]="x"></div>
+     ~~~~~~~~~~~~~~~~~~~~~~
+```
+
+<br>
+
+---
+
+<br>
+
+#### Default Config
+
+```json
+{
+  "rules": {
+    "@angular-eslint/template/valid-aria": [
+      "error"
+    ]
+  }
+}
+```
+
+<br>
+
+#### ❌ Invalid Code
+
+```html
+<div attr.ARIA-labelx="x"></div>
+     ~~~~~~~~~~~~~~~~~~~~
+```
+
 </details>
 
 <br>
